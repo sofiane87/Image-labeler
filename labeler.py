@@ -432,6 +432,7 @@ class labeler :
 		pix = QPixmap(qimage)
 		pix = pix.scaled(400, 400, Qt.KeepAspectRatio)
 		self.pic.setPixmap(pix)
+		self.pic.setAlignment(Qt.AlignCenter)
 
 
 if __name__ == '__main__':
