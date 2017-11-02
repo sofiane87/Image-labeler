@@ -33,14 +33,16 @@ class labeler :
 			self.loaded_data = {}
 			import numpy as np
 			for filename in os.listdir(self.data_path):
-				img = Image.open(os.path.join(self.data_path,filename))
-				if img is not None:
-					self.remainingImgs.append(filename)
-					if len(np.array(img).shape) != 3:
-						self.loaded_data[filename] = np.repeat(np.expand_dims(img,2),3,2)
-					else:
-						self.loaded_data[filename] = np.array(img)
-
+				try:
+					img = Image.open(os.path.join(self.data_path,filename))
+					if img is not None:
+						self.remainingImgs.append(filename)
+						if len(np.array(img).shape) != 3:
+							self.loaded_data[filename] = np.repeat(np.expand_dims(img,2),3,2)
+						else:
+							self.loaded_data[filename] = np.array(img)
+				except:
+					print('ignoring : {}'.format(filename))
 
 		elif '.npy' in self.data_path :
 			import numpy as np
@@ -56,7 +58,7 @@ class labeler :
 		if os.path.exists(self.save_path):
 			import pandas as pd
 			df = pd.ExcelFile(self.save_path).parse("Sheet1")
-			self.unique_labels = list(df.Label.unique())
+			self.unique_labels = sorted(list(df.Label.unique()))
 			self.taggedImgs = list(df.ID)
 			self.tags = list(df.Label)
 			self.comments = list(df.Comment)
@@ -67,7 +69,7 @@ class labeler :
 	def normalize_savePath(self):
 		if not(os.path.isfile(self.save_path)):
 			if os.path.isdir(self.save_path):
-				self.save_path = os.path.join(self.save_path,'label_data.xls')
+				self.save_path = os.path.join(self.save_path,'saveFile.xls')
 
 
 	def save_labels(self):
@@ -124,6 +126,7 @@ class labeler :
 		self.unique_labels = list(set([word.strip().lower() for word in self.labelLine.text().split(',')]))
 		if 'other' not in self.unique_labels :
 			self.unique_labels.append('other')
+		self.unique_labels	= sorted(self.unique_labels)
 
 		self.BuildCoreWindow()
 
@@ -147,7 +150,15 @@ class labeler :
 		nameLabel = QLabel("Input File/Folder : ")
 		self.nameLine = QLineEdit()
 		saveLabel = QLabel("Save Path : ")
-		self.saveLine = QLineEdit()
+		saveFileNameLabel = QLabel("Save Path : ")
+		self.saveFilePathLine = QLineEdit()
+		self.saveFileNameLine = QLineEdit()
+
+		savePath, saveFileName = os.path.split(os.path.abspath(__file__))
+		
+		self.saveFilePathLine.setText(os.path.join(savePath,'saveFolder'))
+		self.saveFileNameLine.setText('saveFile.xls')
+		
 		submitButton = QPushButton("&Submit")
 		folderButton = QPushButton("&look for path")
 		saveFolderButton = QPushButton("&look for path")
@@ -180,10 +191,12 @@ class labeler :
 		mainLayout.addWidget(self.nameLine, 1, 1)
 		mainLayout.addWidget(folderButton, 1, 2)
 		mainLayout.addWidget(saveLabel, 2, 0)
-		mainLayout.addWidget(self.saveLine, 2, 1)
+		mainLayout.addWidget(self.saveFilePathLine, 2, 1)
 		mainLayout.addWidget(saveFolderButton, 2, 2)
-		mainLayout.addWidget(self.cb, 3, 0)
-		mainLayout.addWidget(submitButton, 3, 2)
+		mainLayout.addWidget(saveFileNameLabel, 3, 0)
+		mainLayout.addWidget(self.saveFileNameLine, 3, 1)
+		mainLayout.addWidget(self.cb, 4, 0)
+		mainLayout.addWidget(submitButton, 4, 2)
 
 		self.mainPage.setLayout(mainLayout)
 
@@ -238,7 +251,18 @@ class labeler :
 					files.append(os.path.join(str(self.fileWindow.directory().absolutePath()),str(i.data())))
 			self.fileWindow.selectedFiles = files[0]
 			if self.fileWindow.selectedFiles:
-				 self.saveLine.setText(self.fileWindow.selectedFiles)
+				if os.path.isdir(self.fileWindow.selectedFiles):
+					self.saveFilePathLine.setText(self.fileWindow.selectedFiles)
+				else:
+					savePath, saveFileName = os.path.split(self.fileWindow.selectedFiles)
+					if savePath:
+						self.saveFilePathLine.setText(savePath)
+
+					if saveFileName != '' and saveFileName != '':
+						self.saveFileNameLine.setText(saveFileName)
+					else:
+						self.saveFileNameLine.setText('saveFile.xls')
+
 			self.fileWindow.hide()
 
 		btns = self.fileWindow.findChildren(QPushButton)
@@ -256,7 +280,7 @@ class labeler :
 
 	def submitPaths(self):
 		inputPath = self.nameLine.text()
-		savePath = self.saveLine.text()
+		savePath = os.path.join(self.saveFilePathLine.text(),self.saveFileNameLine.text())
 
 		if inputPath == "" or savePath == "":
 			QMessageBox.information(self.mainPage, "Empty Field",
